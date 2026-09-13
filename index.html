@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>课堂抽签 · 权重抽奖</title>
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#F3F4FB;
+    --ink:#1B1F33;
+    --muted:#6A7090;
+    --red:#C9321E;
+    --red-deep:#A82616;
+    --indigo:#3B4A8C;
+    --indigo-deep:#2E3A72;
+    --gold:#D99A2B;
+    --card:#FFFFFF;
+    --line:#E4E7F2;
+    --soft:#EDEFF8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 500px at 50% -10%, #E8EBFA 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    padding:28px 16px 60px;
+  }
+  .wrap{max-width:680px;margin:0 auto;}
+
+  header{text-align:center;margin-bottom:22px;}
+  .eyebrow{
+    display:inline-block;font-size:12px;letter-spacing:.28em;color:var(--indigo);
+    font-weight:600;text-transform:uppercase;
+    background:var(--soft);border:1px solid var(--line);border-radius:999px;
+    padding:5px 14px;margin-bottom:12px;
+  }
+  h1{font-size:30px;margin:0;font-weight:800;letter-spacing:.02em;}
+  .sub{color:var(--muted);font-size:14px;margin-top:8px;}
+  .sub b{color:var(--ink);font-weight:700;}
+
+  /* ---- ticket stage ---- */
+  .stage{display:flex;justify-content:center;margin:8px 0 6px;}
+  .ticket{
+    position:relative;width:100%;max-width:460px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:0 12px 34px -14px rgba(27,31,51,.28);
+    display:flex;align-items:stretch;
+    overflow:hidden;
+  }
+  .ticket::before,.ticket::after{
+    content:"";position:absolute;top:50%;transform:translateY(-50%);
+    width:22px;height:22px;border-radius:50%;background:var(--bg);z-index:2;
+    box-shadow:inset 0 0 0 1px var(--line);
+  }
+  .ticket::before{left:-11px;}
+  .ticket::after{right:-11px;}
+  .stub{
+    flex:0 0 96px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;padding:26px 10px;border-right:2px dashed var(--line);color:var(--muted);
+  }
+  .stub .no{font-size:30px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;
+    font-family:"SF Mono","Menlo","Consolas",monospace;}
+  .stub .lbl{font-size:11px;letter-spacing:.2em;}
+  .bodycell{
+    flex:1;display:flex;align-items:center;justify-content:center;text-align:center;
+    padding:30px 22px;min-height:150px;position:relative;
+  }
+  .name{
+    font-size:44px;font-weight:800;letter-spacing:.04em;line-height:1.15;
+    transition:opacity .12s;
+  }
+  .namelbl{font-size:12px;letter-spacing:.22em;color:var(--muted);margin-bottom:6px;}
+
+  /* stamp */
+  .stamp{
+    position:absolute;top:50%;right:8%;transform:translateY(-50%) rotate(-9deg) scale(0);
+    width:74px;height:74px;border-radius:12px;
+    background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;
+    font-family:"Kaiti SC","STKaiti","KaiTi",serif;font-size:30px;font-weight:700;
+    border:2px solid var(--red-deep);
+    box-shadow:0 6px 16px -4px rgba(201,50,30,.5), inset 0 0 0 3px #fff, inset 0 0 0 5px rgba(201,50,30,.25);
+    transition:transform .28s cubic-bezier(.2,1.6,.4,1);
+    pointer-events:none;
+  }
+  .stamp.show{transform:translateY(-50%) rotate(-9deg) scale(1);}
+
+  /* ---- controls ---- */
+  .drawbtn{
+    display:block;width:100%;max-width:460px;margin:18px auto 6px;
+    border:none;cursor:pointer;border-radius:14px;
+    background:linear-gradient(180deg,var(--indigo),var(--indigo-deep));
+    color:#fff;font-size:22px;font-weight:700;letter-spacing:.35em;text-indent:.35em;
+    padding:18px 20px;
+    box-shadow:0 12px 26px -12px rgba(46,58,114,.7);
+    transition:transform .06s ease, box-shadow .15s ease, filter .15s ease;
+  }
+  .drawbtn:hover{filter:brightness(1.05);}
+  .drawbtn:active{transform:translateY(2px);box-shadow:0 6px 14px -10px rgba(46,58,114,.7);}
+  .drawbtn:disabled{filter:grayscale(.3) brightness(.92);cursor:default;}
+  .drawbtn:focus-visible{outline:3px solid var(--gold);outline-offset:3px;}
+
+  /* stats */
+  .stats{display:flex;gap:10px;justify-content:center;margin:14px 0 4px;flex-wrap:wrap;}
+  .stat{
+    flex:1;min-width:120px;max-width:180px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:center;
+  }
+  .stat .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;
+    font-family:"SF Mono","Menlo","Consolas",monospace;}
+  .stat .k{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  /* history */
+  .section-title{font-size:13px;letter-spacing:.12em;color:var(--muted);margin:22px 0 10px;text-align:center;}
+  .history{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;min-height:20px;}
+  .chip{
+    background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:6px 12px;font-size:13px;color:var(--ink);
+    animation:pop .25s ease;
+  }
+  .chip .idx{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:6px;font-size:12px;}
+  .chip:first-child{background:var(--indigo);border-color:var(--indigo);color:#fff;}
+  .chip:first-child .idx{color:rgba(255,255,255,.7);}
+  @keyframes pop{from{transform:scale(.8);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+  .empty{color:var(--muted);font-size:13px;}
+
+  /* bottom controls */
+  .bottom{display:flex;gap:10px;justify-content:center;margin-top:26px;flex-wrap:wrap;}
+  .ghost{
+    border:1px solid var(--line);background:var(--card);color:var(--ink);
+    border-radius:10px;padding:9px 16px;font-size:14px;cursor:pointer;font-weight:600;
+    transition:background .12s ease,border-color .12s ease;
+  }
+  .ghost:hover{background:var(--soft);border-color:#cdd2e8;}
+  .ghost:focus-visible{outline:3px solid var(--gold);outline-offset:2px;}
+  .ghost.primary{color:var(--red);border-color:rgba(201,50,30,.35);}
+  .ghost.primary:hover{background:#FBF0EE;}
+
+  /* weights table */
+  .weights{margin-top:16px;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:var(--card);
+    display:none;}
+  .weights.open{display:block;animation:pop .2s ease;}
+  .whead{
+    display:grid;grid-template-columns:64px 1fr 130px 70px;gap:8px;
+    padding:11px 16px;background:var(--soft);font-size:12px;color:var(--muted);
+    letter-spacing:.08em;font-weight:600;
+  }
+  .wrow{
+    display:grid;grid-template-columns:64px 1fr 130px 70px;gap:8px;
+    padding:10px 16px;font-size:14px;border-top:1px solid var(--line);align-items:center;
+  }
+  .wrow .no{color:var(--muted);font-variant-numeric:tabular-nums;
+    font-family:"SF Mono","Menlo","Consolas",monospace;font-size:13px;}
+  .wrow .name{font-size:15px;font-weight:700;}
+  .wrow .bar{
+    height:6px;border-radius:3px;background:var(--soft);overflow:hidden;margin-top:5px;
+  }
+  .wrow .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--indigo),#5a6bb8);
+    border-radius:3px;transition:width .4s ease;}
+  .wrow .wv{font-variant-numeric:tabular-nums;font-family:"SF Mono","Menlo","Consolas",monospace;
+    font-size:13px;color:var(--ink);text-align:right;}
+  .wrow .cnt{text-align:center;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+  .note{margin-top:14px;text-align:center;font-size:12px;color:var(--muted);line-height:1.7;}
+  .note code{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;}
+
+  @media (max-width:480px){
+    .name{font-size:34px;}
+    .stub{flex:0 0 78px;}
+    .stub .no{font-size:24px;}
+    .stamp{width:62px;height:62px;font-size:24px;right:4%;}
+    h1{font-size:26px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .stamp{transition:none;}
+    .chip{animation:none;}
+    .drawbtn{transition:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="eyebrow">课堂点名 · 权重抽签</span>
+    <h1>幸运抽签</h1>
+    <p class="sub">共 <b id="totalPeople">41</b> 人 · 每人初始权重相等 · 权重总和恒为 <b>100</b></p>
+  </header>
+
+  <div class="stage">
+    <div class="ticket">
+      <div class="stub">
+        <span class="lbl">编号</span>
+        <span class="no" id="resultNo">—</span>
+      </div>
+      <div class="bodycell">
+        <div style="width:100%;">
+          <div class="namelbl">中签</div>
+          <div class="name" id="resultName">点击下方开始</div>
+        </div>
+        <div class="stamp" id="stamp">中签</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="drawbtn" id="drawBtn">抽 签</button>
+
+  <div class="stats">
+    <div class="stat"><div class="v" id="statSum">100.00</div><div class="k">权重总和</div></div>
+    <div class="stat"><div class="v" id="statDraws">0</div><div class="k">已抽次数</div></div>
+    <div class="stat"><div class="v" id="statPicked">0</div><div class="k">已抽到人数</div></div>
+  </div>
+
+  <div class="section-title">抽 中 记 录</div>
+  <div class="history" id="history">
+    <span class="empty">还没有抽过，点上方按钮开始</span>
+  </div>
+
+  <div class="bottom">
+    <button class="ghost" id="clearBtn">清空记录</button>
+    <button class="ghost" id="resetBtn">重置权重</button>
+    <button class="ghost primary" id="weightBtn">查看所有权重</button>
+  </div>
+
+  <div class="weights" id="weights">
+    <div class="whead">
+      <span>编号</span><span>姓名</span><span style="text-align:right">当前权重</span><span style="text-align:center">抽中</span>
+    </div>
+    <div id="wbody"></div>
+  </div>
+
+  <p class="note">规则：每次抽中后，该条内容权重 × <code>0.6</code>（不低于 <code>0.2</code>），
+  减少的部分平均分给其余内容，权重总和始终保持 <code>100</code>。编号与姓名仅用于展示。</p>
+
+</div>
+
+<script>
+(function(){
+  var PEOPLE = [
+    ["01","陈妙涵"],["02","陈铄霏"],["03","冯天易"],["04","顾奕雯"],["05","胡秦格"],
+    ["06","胡誉缤"],["07","黄沁宁"],["08","季之秋"],["09","陆锦澜"],["10","倪司祺"],
+    ["11","屈欣"],["12","水樱霏"],["13","王思淇"],["15","袁艺薇"],["16","张秋诺"],
+    ["17","张潇月"],["18","张歆妍"],["19","郑铭"],
+    ["31","曹辰轩"],["32","曹景毅"],["33","陈信"],["34","丁逸帆"],["35","董俊言"],
+    ["36","冯一帆"],["37","顾禹予"],["38","黄垚成"],["39","蓝迪"],["40","李广一"],
+    ["41","王子一"],["42","王梓翔"],["43","吴思琦"],["44","吴思禹"],["45","吴侯"],
+    ["46","吴卓轩"],["47","薛光奇"],["48","于哲涵"],["49","张锦灏"],["50","章天宇"],
+    ["2532","房宸屹"],["2534","华博航"],["—","老师自己回答"]
+  ];
+  var FLOOR = 0.2, DECAY = 0.6, N = PEOPLE.length;
+  var items, history = [], totalDraws = 0, rolling = false;
+
+  function reset(){
+    items = PEOPLE.map(function(p){ return {no:p[0], name:p[1], weight:100/N, count:0}; });
+    history = []; totalDraws = 0;
+    renderAll();
+  }
+
+  function pickIndex(){
+    var r = Math.random()*100;
+    for(var i=0;i<items.length;i++){ r -= items[i].weight; if(r<=0) return i; }
+    return items.length-1;
+  }
+
+  function applyWeight(idx){
+    var item = items[idx];
+    var target = Math.max(FLOOR, item.weight*DECAY);
+    var reduction = item.weight - target;
+    item.weight = target;
+    var share = reduction/(N-1);
+    for(var i=0;i<N;i++){ if(i!==idx) items[i].weight += share; }
+    // 消除浮点误差，强制归一到 100
+    var sum = items.reduce(function(s,it){ return s+it.weight; },0);
+    for(var j=0;j<N;j++){ items[j].weight = items[j].weight/sum*100; }
+    item.count++; totalDraws++;
+  }
+
+  function randomName(){ return items[Math.floor(Math.random()*N)].name; }
+
+  function el(id){ return document.getElementById(id); }
+
+  function fmt(w){ return w.toFixed(2); }
+
+  function renderResult(no,name){
+    el("resultNo").textContent = no;
+    el("resultName").textContent = name;
+  }
+  function showStamp(on){ el("stamp").classList.toggle("show", on); }
+
+  function renderAll(){
+    el("totalPeople").textContent = N;
+    var sum = items.reduce(function(s,it){return s+it.weight;},0);
+    el("statSum").textContent = fmt(sum);
+    el("statDraws").textContent = totalDraws;
+    el("statPicked").textContent = items.filter(function(it){return it.count>0;}).length;
+    renderHistory();
+    renderWeights();
+  }
+
+  function renderHistory(){
+    var box = el("history");
+    box.innerHTML = "";
+    if(history.length===0){
+      var s=document.createElement("span"); s.className="empty";
+      s.textContent="还没有抽过，点上方按钮开始"; box.appendChild(s); return;
+    }
+    for(var i=history.length-1;i>=0;i--){
+      var c=document.createElement("span"); c.className="chip";
+      var ix=document.createElement("span"); ix.className="idx";
+      ix.textContent=(i+1); c.appendChild(ix);
+      c.appendChild(document.createTextNode(history[i]));
+      box.appendChild(c);
+    }
+  }
+
+  function renderWeights(){
+    var wb = el("wbody"); if(!wb) return;
+    wb.innerHTML="";
+    items.forEach(function(it){
+      var row=document.createElement("div"); row.className="wrow";
+      var c1=document.createElement("span"); c1.className="no"; c1.textContent=it.no;
+      var c2=document.createElement("div");
+      var nm=document.createElement("div"); nm.className="name"; nm.textContent=it.name;
+      var bar=document.createElement("div"); bar.className="bar";
+      var fill=document.createElement("i");
+      // 以初始权重为基准的相对长度，直观反映变化
+      var base = 100/N;
+      var ratio = it.weight/base; // 1 = 初始
+      fill.style.width = Math.min(100, ratio*50) + "%";
+      fill.style.background = ratio>=1 ? "linear-gradient(90deg,#3B4A8C,#5a6bb8)" :
+        (ratio>=0.8 ? "linear-gradient(90deg,#7a86c0,#98a2d0)" : "linear-gradient(90deg,#d99a2b,#e6b45e)");
+      bar.appendChild(fill);
+      c2.appendChild(nm); c2.appendChild(bar);
+      var c3=document.createElement("span"); c3.className="wv"; c3.textContent=fmt(it.weight);
+      var c4=document.createElement("span"); c4.className="cnt"; c4.textContent=it.count;
+      row.appendChild(c1); row.appendChild(c2); row.appendChild(c3); row.appendChild(c4);
+      wb.appendChild(row);
+    });
+  }
+
+  function doDraw(){
+    if(rolling) return;
+    var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var idx = pickIndex();
+    rolling = true;
+    showStamp(false);
+    el("drawBtn").disabled = true;
+
+    if(reduced){
+      finish(idx); return;
+    }
+
+    var ticks=0, total=18;
+    function step(){
+      if(ticks < total){
+        renderResult("·", randomName());
+        ticks++;
+        var delay = ticks<13 ? 60 : 60 + (ticks-13)*50;
+        setTimeout(step, delay);
+      } else {
+        finish(idx);
+      }
+    }
+    step();
+  }
+
+  function finish(idx){
+    var it = items[idx];
+    renderResult(it.no, it.name);
+    showStamp(true);
+    applyWeight(idx);
+    history.push(it.name);
+    renderAll();
+    rolling = false;
+    el("drawBtn").disabled = false;
+  }
+
+  // 事件
+  el("drawBtn").addEventListener("click", doDraw);
+  el("resetBtn").addEventListener("click", function(){
+    reset(); renderResult("—","点击下方开始"); showStamp(false);
+  });
+  el("clearBtn").addEventListener("click", function(){
+    history=[]; renderHistory();
+  });
+  el("weightBtn").addEventListener("click", function(){
+    var w=el("weights"); var open=w.classList.toggle("open");
+    el("weightBtn").textContent = open ? "收起权重" : "查看所有权重";
+    if(open){ renderWeights(); }
+  });
+
+  reset();
+  renderResult("—","点击下方开始");
+})();
+</script>
+</body>
+</html>
